@@ -6,8 +6,18 @@ import numpy as np
 
 # Load the model
 @st.cache_resource
+import streamlit as st
+import tensorflow as tf
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+@st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('brain_tumor_model.keras')
+    return tf.keras.models.load_model(
+        'brain_tumor_model.keras',
+        custom_objects={'preprocess_input': preprocess_input}
+    )
+
+model = load_model()
 
 model = load_model()
 
