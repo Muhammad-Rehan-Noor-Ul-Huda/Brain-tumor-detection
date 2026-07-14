@@ -4,12 +4,6 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from PIL import Image
 import numpy as np
 
-# Load the model
-@st.cache_resource
-import streamlit as st
-import tensorflow as tf
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model(
@@ -19,7 +13,6 @@ def load_model():
 
 model = load_model()
 
-model = load_model()
 
 st.title("Brain Tumor Classifier")
 uploaded_file = st.file_uploader("Upload an MRI scan...", type=["jpg", "png", "jpeg"])
