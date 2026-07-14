@@ -7,7 +7,7 @@ import numpy as np
 # Load the model
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('brain_tumor_model.keras.keras')
+    return tf.keras.models.load_model('brain_tumor_model.keras')
 
 model = load_model()
 
