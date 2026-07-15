@@ -289,7 +289,7 @@ footer, #MainMenu { display: none !important; }
 # ── Model ──────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_model():
-    return tf.keras.models.load_model("brain_tumor_model.keras")
+    return tf.keras.models.load_model("brain_tumor_model.h5")
 
 with st.spinner("Initialising NeuraScan..."):
     model = load_model()
