@@ -2,6 +2,8 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 import time
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -13,38 +15,49 @@ st.set_page_config(
 )
 
 # ── Class config ───────────────────────────────────────────────────────────────
-# IMPORTANT: verify this order matches what was printed at training time
-CLASS_NAMES = ['glioma', 'meningioma', 'notumor', 'pituitary']
+# Keys match exactly what model.fit printed: train_dataset.class_names
+CLASS_NAMES = ["glioma", "meningioma", "notumor", "pituitary"]
 
 CLASS_META = {
-    "Glioma": {
+    "glioma": {
         "icon": "⚠️",
         "color": "#ef4444",
         "glow": "rgba(239,68,68,0.35)",
+        "display": "Glioma",
         "desc": "A tumor originating in the glial cells of the brain or spine. Gliomas are the most common primary brain tumors and vary widely in severity.",
         "urgency": "Consult a neuro-oncologist promptly.",
     },
-    "Meningioma": {
+    "meningioma": {
         "icon": "🔶",
         "color": "#f97316",
         "glow": "rgba(249,115,22,0.35)",
+        "display": "Meningioma",
         "desc": "A tumor arising from the meninges — the protective membranes surrounding the brain and spinal cord. Most are benign and slow-growing.",
         "urgency": "Regular monitoring is typically recommended.",
     },
-    "No Tumor": {
+    "notumor": {
         "icon": "✅",
         "color": "#22c55e",
         "glow": "rgba(34,197,94,0.35)",
+        "display": "No Tumor",
         "desc": "No visible tumor detected in the MRI scan. The tissue appears within normal parameters for AI analysis.",
         "urgency": "Continue routine check-ups as advised by your physician.",
     },
-    "Pituitary": {
+    "pituitary": {
         "icon": "🔵",
         "color": "#3b82f6",
         "glow": "rgba(59,130,246,0.35)",
+        "display": "Pituitary",
         "desc": "A tumor located in the pituitary gland at the base of the brain. Most pituitary tumors are non-cancerous and highly treatable.",
         "urgency": "Endocrinology and neurology review recommended.",
     },
+}
+
+BAR_COLORS = {
+    "glioma":     "#ef4444",
+    "meningioma": "#f97316",
+    "notumor":    "#22c55e",
+    "pituitary":  "#3b82f6",
 }
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
@@ -68,7 +81,6 @@ footer, #MainMenu { display: none !important; }
 .block-container { padding: 0 !important; max-width: 100% !important; }
 [data-testid="stVerticalBlock"] { gap: 0 !important; }
 
-/* HERO */
 .hero {
     padding: 64px 60px 52px;
     background:
@@ -117,18 +129,8 @@ footer, #MainMenu { display: none !important; }
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
-.hero-sub {
-    font-size: 1rem;
-    color: #94a3b8;
-    line-height: 1.7;
-    max-width: 520px;
-}
-.hero-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    align-items: flex-end;
-}
+.hero-sub { font-size: 1rem; color: #94a3b8; line-height: 1.7; max-width: 520px; }
+.hero-stats { display: flex; flex-direction: column; gap: 14px; align-items: flex-end; }
 .stat-pill {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
@@ -140,7 +142,6 @@ footer, #MainMenu { display: none !important; }
 .stat-num { font-size: 1.5rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.03em; }
 .stat-label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; }
 
-/* PANEL LABEL */
 .panel-label {
     font-size: 0.68rem;
     font-weight: 600;
@@ -150,8 +151,6 @@ footer, #MainMenu { display: none !important; }
     margin-bottom: 16px;
     font-family: 'JetBrains Mono', monospace;
 }
-
-/* IDLE STATE */
 .idle-zone {
     border: 2px dashed rgba(99,102,241,0.2);
     border-radius: 16px;
@@ -162,8 +161,6 @@ footer, #MainMenu { display: none !important; }
 }
 .idle-icon { font-size: 2.2rem; margin-bottom: 14px; display: block; opacity: 0.5; }
 .idle-text { font-size: 0.88rem; color: #334155; line-height: 1.7; }
-
-/* SCAN META */
 .scan-meta {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
@@ -171,8 +168,6 @@ footer, #MainMenu { display: none !important; }
     letter-spacing: 1.5px;
     margin-top: 8px;
 }
-
-/* DIAGNOSIS CARD */
 .dx-card {
     border-radius: 20px;
     padding: 28px;
@@ -180,12 +175,6 @@ footer, #MainMenu { display: none !important; }
     position: relative;
     overflow: hidden;
     margin-bottom: 16px;
-}
-.dx-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
 }
 .dx-eyebrow {
     font-family: 'JetBrains Mono', monospace;
@@ -204,8 +193,6 @@ footer, #MainMenu { display: none !important; }
     padding-top: 14px; margin-bottom: 10px;
 }
 .dx-urgency { font-size: 0.8rem; font-weight: 500; opacity: 0.85; }
-
-/* CONFIDENCE BARS */
 .conf-block {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.07);
@@ -224,8 +211,6 @@ footer, #MainMenu { display: none !important; }
 .conf-pct { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: #475569; }
 .conf-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
 .conf-fill { height: 100%; border-radius: 99px; }
-
-/* DISCLAIMER */
 .disclaimer {
     background: rgba(251,191,36,0.04);
     border: 1px solid rgba(251,191,36,0.12);
@@ -235,9 +220,7 @@ footer, #MainMenu { display: none !important; }
     gap: 10px;
     align-items: flex-start;
 }
-.disclaimer-text { font-size: 0.78rem; color: #b45309; line-height: 1.6; color: #fbbf24; opacity: 0.7; }
-
-/* IDLE RESULT */
+.disclaimer-text { font-size: 0.78rem; line-height: 1.6; color: #fbbf24; opacity: 0.7; }
 .result-idle {
     height: 340px;
     display: flex;
@@ -250,13 +233,7 @@ footer, #MainMenu { display: none !important; }
 .result-idle-inner { text-align: center; }
 .result-idle-icon { font-size: 1.8rem; opacity: 0.15; margin-bottom: 10px; }
 .result-idle-text { font-size: 0.82rem; color: #1e293b; }
-
-/* HOW IT WORKS */
-.how-section {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 60px 72px;
-}
+.how-section { max-width: 1200px; margin: 0 auto; padding: 0 60px 72px; }
 .how-title {
     font-size: 0.68rem; letter-spacing: 2.5px; text-transform: uppercase;
     color: #334155; font-family: 'JetBrains Mono', monospace;
@@ -272,10 +249,8 @@ footer, #MainMenu { display: none !important; }
 .how-num { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #6366f1; letter-spacing: 2px; margin-bottom: 10px; }
 .how-head { font-size: 0.92rem; font-weight: 600; color: #e2e8f0; margin-bottom: 7px; }
 .how-body { font-size: 0.78rem; color: #334155; line-height: 1.65; }
-
 .divider { height: 1px; background: rgba(255,255,255,0.05); max-width: 1200px; margin: 0 auto; }
 
-/* Streamlit overrides */
 [data-testid="stFileUploaderDropzone"] {
     background: rgba(99,102,241,0.04) !important;
     border: 2px dashed rgba(99,102,241,0.25) !important;
@@ -286,10 +261,30 @@ footer, #MainMenu { display: none !important; }
 """, unsafe_allow_html=True)
 
 
-# ── Model ──────────────────────────────────────────────────────────────────────
+# ── Model — rebuilds architecture then loads weights ───────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_model():
-    return tf.keras.models.load_model("brain_tumor_model.h5")
+    base_model = MobileNetV2(
+        input_shape=(224, 224, 3),
+        include_top=False,
+        weights=None,
+    )
+    base_model.trainable = False
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(224, 224, 3)),
+        tf.keras.layers.RandomFlip("horizontal"),
+        tf.keras.layers.RandomRotation(0.2),
+        tf.keras.layers.RandomZoom(0.2),
+        tf.keras.layers.Lambda(preprocess_input),
+        base_model,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(4, activation="softmax"),
+    ])
+
+    model.load_weights("brain_tumor_weights.weights.h5")
+    return model
 
 with st.spinner("Initialising NeuraScan..."):
     model = load_model()
@@ -306,18 +301,9 @@ st.markdown("""
       across four diagnostic categories, powered by transfer learning on MobileNetV2.</p>
     </div>
     <div class="hero-stats">
-      <div class="stat-pill">
-        <div class="stat-num">4</div>
-        <div class="stat-label">Classes</div>
-      </div>
-      <div class="stat-pill">
-        <div class="stat-num">224px</div>
-        <div class="stat-label">Input size</div>
-      </div>
-      <div class="stat-pill">
-        <div class="stat-num">MNV2</div>
-        <div class="stat-label">Backbone</div>
-      </div>
+      <div class="stat-pill"><div class="stat-num">4</div><div class="stat-label">Classes</div></div>
+      <div class="stat-pill"><div class="stat-num">224px</div><div class="stat-label">Input size</div></div>
+      <div class="stat-pill"><div class="stat-num">MNV2</div><div class="stat-label">Backbone</div></div>
     </div>
   </div>
 </div>
@@ -372,31 +358,29 @@ with col_right:
         label      = CLASS_NAMES[class_idx]
         meta       = CLASS_META[label]
 
-        # diagnosis card
         st.markdown(f"""
         <div class="dx-card" style="border-color:{meta['color']}28;
              background: radial-gradient(ellipse 90% 60% at 50% 0%, {meta['glow']}, transparent 65%), rgba(255,255,255,0.015);">
             <div class="dx-eyebrow" style="color:{meta['color']};">AI Diagnosis · {confidence:.1f}% confidence</div>
             <span class="dx-icon">{meta['icon']}</span>
-            <div class="dx-label" style="color:{meta['color']};">{label}</div>
+            <div class="dx-label" style="color:{meta['color']};">{meta['display']}</div>
             <div class="dx-conf">model confidence · {confidence:.2f}%</div>
             <div class="dx-desc">{meta['desc']}</div>
             <div class="dx-urgency" style="color:{meta['color']};">→ {meta['urgency']}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # confidence bars
-        bar_colors = {"Glioma":"#ef4444","Meningioma":"#f97316","No Tumor":"#22c55e","Pituitary":"#3b82f6"}
-        rows_html  = ""
+        rows_html = ""
         for name, prob in zip(CLASS_NAMES, prediction):
             pct    = prob * 100
             is_top = name == label
-            fill   = f"background:{bar_colors[name]};" if is_top else "background:rgba(255,255,255,0.08);"
+            fill   = f"background:{BAR_COLORS[name]};" if is_top else "background:rgba(255,255,255,0.08);"
             weight = "font-weight:700;color:#f8fafc;" if is_top else "color:#475569;"
+            display_name = CLASS_META[name]["display"]
             rows_html += f"""
             <div class="conf-row">
               <div class="conf-header">
-                <span class="conf-name" style="{weight}">{name}</span>
+                <span class="conf-name" style="{weight}">{display_name}</span>
                 <span class="conf-pct">{pct:.1f}%</span>
               </div>
               <div class="conf-track">
@@ -432,7 +416,6 @@ with col_right:
         """, unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ── HOW IT WORKS ───────────────────────────────────────────────────────────────
 st.markdown('<div style="height:52px"></div>', unsafe_allow_html=True)
