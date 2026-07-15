@@ -12,7 +12,7 @@ class_names = ['glioma', 'meningioma', 'notumor', 'pituitary']
 
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('model.keras')
+    return tf.keras.models.load_model('brain_tumor_mobilenet.keras')
 
 model = load_model()
 
