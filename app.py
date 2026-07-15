@@ -27,4 +27,5 @@ if uploaded_file is not None:
     class_idx = np.argmax(prediction)
 
     st.write(f"Prediction Result: Class {class_idx}")
-    st.write("This is only for educational purpose professionals are still recommended")
+    st.write("Raw prediction probabilities:", prediction)
+    st.write("Predicted class index:", class_idx)
