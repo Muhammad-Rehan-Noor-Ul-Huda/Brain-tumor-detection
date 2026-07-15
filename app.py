@@ -4,6 +4,9 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from PIL import Image
 import numpy as np
 
+# Define your class names based on your training sequence
+class_names = ['glioma', 'meningioma', 'notumor', 'pituitary']
+
 # Load the model
 @st.cache_resource
 def load_model():
@@ -17,7 +20,7 @@ uploaded_file = st.file_uploader("Upload an MRI scan...", type=["jpg", "png", "j
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert('RGB')
     image = image.resize((224, 224))
-    st.image(image, caption='Uploaded MRI', use_container_width=True)
+    st.image(image, caption='Uploaded MRI', width=300) # Updated from use_container_width
     
     # Preprocess
     img_array = np.array(image)
@@ -28,5 +31,8 @@ if uploaded_file is not None:
     prediction = model.predict(img_array)
     class_idx = np.argmax(prediction)
     
-    st.write(f"Prediction Result: Class {class_idx}")
-    st.write("This is only for educational purpose professionals are still recommended")
+    # Map index to class name
+    predicted_class = class_names[class_idx]
+    
+    st.write(f"Prediction Result: **{predicted_class}**")
+    st.write("This is only for educational purposes; professional medical advice is still recommended.")
