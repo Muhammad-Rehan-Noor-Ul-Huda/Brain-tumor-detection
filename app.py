@@ -6,7 +6,7 @@ import numpy as np
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model(
-        'brain_tumor_model.keras',
+        'brain_tumor_mobilenet.keras',
         custom_objects={'preprocess_input': preprocess_input}
     )
 model = load_model()
