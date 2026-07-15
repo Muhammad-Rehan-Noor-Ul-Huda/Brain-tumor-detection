@@ -36,3 +36,6 @@ if uploaded_file is not None:
     
     st.write(f"Prediction Result: **{predicted_class}**")
     st.write("This is only for educational purposes; professional medical advice is still recommended.")
+    # Temporary debug code
+    st.write("Raw Model Output (Probabilities):")
+    st.write(prediction)
